@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -9,6 +10,7 @@ DATA_DIR = ROOT_DIR / "data"
 DB_PATH = DATA_DIR / "gesture_training.sqlite"
 MODEL_JSON_PATH = DATA_DIR / "gesture_model.json"
 MODEL_PT_PATH = DATA_DIR / "gesture_model.pt"
+DEFAULT_EPOCHS = 90
 
 
 def load_samples():
@@ -62,7 +64,8 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
 
     model.train()
-    for _ in range(180):
+    epochs = int(os.environ.get("GESTURE_EPOCHS", DEFAULT_EPOCHS))
+    for _ in range(epochs):
         for batch_x, batch_y in loader:
             optimizer.zero_grad()
             loss = loss_fn(model(batch_x), batch_y)
@@ -99,6 +102,7 @@ def main():
         "accuracy": round(accuracy, 4),
         "averageConfidence": round(average_confidence, 4),
         "sampleCount": len(samples),
+        "epochs": epochs,
         "layers": layers,
     }
     MODEL_JSON_PATH.write_text(json.dumps(payload), encoding="utf-8")

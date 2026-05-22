@@ -38,6 +38,14 @@ const objectTrainingJob = {
   error: null,
   logs: []
 };
+const gestureTrainingJob = {
+  status: "idle",
+  startedAt: null,
+  finishedAt: null,
+  payload: null,
+  error: null,
+  logs: []
+};
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -141,19 +149,19 @@ function parsePythonJsonOutput(output, errorOutput = "") {
   }
 }
 
-function startObjectTrainingJob() {
-  if (objectTrainingJob.status === "running") {
-    return { started: false, job: objectTrainingJob };
+function startPythonTrainingJob(job, scriptPath) {
+  if (job.status === "running") {
+    return { started: false, job };
   }
 
-  objectTrainingJob.status = "running";
-  objectTrainingJob.startedAt = new Date().toISOString();
-  objectTrainingJob.finishedAt = null;
-  objectTrainingJob.payload = null;
-  objectTrainingJob.error = null;
-  objectTrainingJob.logs = [];
+  job.status = "running";
+  job.startedAt = new Date().toISOString();
+  job.finishedAt = null;
+  job.payload = null;
+  job.error = null;
+  job.logs = [];
 
-  const child = spawn("python", [trainYoloScript], {
+  const child = spawn("python", [scriptPath], {
     cwd: rootDir,
     env: { ...process.env, PYTHONIOENCODING: "utf-8" },
     windowsHide: true
@@ -165,40 +173,48 @@ function startObjectTrainingJob() {
   child.stdout.on("data", (chunk) => {
     const text = chunk.toString("utf-8");
     stdout += text;
-    objectTrainingJob.logs.push(...text.trim().split(/\r?\n/).filter(Boolean).slice(-10));
-    objectTrainingJob.logs = objectTrainingJob.logs.slice(-30);
+    job.logs.push(...text.trim().split(/\r?\n/).filter(Boolean).slice(-10));
+    job.logs = job.logs.slice(-30);
   });
 
   child.stderr.on("data", (chunk) => {
     const text = chunk.toString("utf-8");
     stderr += text;
-    objectTrainingJob.logs.push(...text.trim().split(/\r?\n/).filter(Boolean).slice(-10));
-    objectTrainingJob.logs = objectTrainingJob.logs.slice(-30);
+    job.logs.push(...text.trim().split(/\r?\n/).filter(Boolean).slice(-10));
+    job.logs = job.logs.slice(-30);
   });
 
   child.on("error", (error) => {
-    objectTrainingJob.status = "failed";
-    objectTrainingJob.error = error.message;
-    objectTrainingJob.finishedAt = new Date().toISOString();
+    job.status = "failed";
+    job.error = error.message;
+    job.finishedAt = new Date().toISOString();
   });
 
   child.on("close", (code) => {
     const payload = parsePythonJsonOutput(stdout, stderr);
-    objectTrainingJob.finishedAt = new Date().toISOString();
+    job.finishedAt = new Date().toISOString();
 
     if (code === 0 && !payload.error) {
-      objectTrainingJob.status = "completed";
-      objectTrainingJob.payload = payload;
-      objectTrainingJob.error = null;
+      job.status = "completed";
+      job.payload = payload;
+      job.error = null;
       return;
     }
 
-    objectTrainingJob.status = "failed";
-    objectTrainingJob.payload = payload;
-    objectTrainingJob.error = payload.error || stderr.trim() || `Python exited with code ${code}`;
+    job.status = "failed";
+    job.payload = payload;
+    job.error = payload.error || stderr.trim() || `Python exited with code ${code}`;
   });
 
-  return { started: true, job: objectTrainingJob };
+  return { started: true, job };
+}
+
+function startGestureTrainingJob() {
+  return startPythonTrainingJob(gestureTrainingJob, trainModelScript);
+}
+
+function startObjectTrainingJob() {
+  return startPythonTrainingJob(objectTrainingJob, trainYoloScript);
 }
 
 function readTrainedModel() {
@@ -242,6 +258,7 @@ const server = http.createServer(async (request, response) => {
       timestamp: new Date().toISOString(),
       trackedGestures: gestureHistory.length
       ,
+      gestureTraining: gestureTrainingJob.status,
       objectTraining: objectTrainingJob.status
     });
     return;
@@ -318,10 +335,16 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === "/api/train-model" && request.method === "POST") {
     try {
-      sendJson(response, 200, runPythonJson([trainModelScript]));
+      const result = startGestureTrainingJob();
+      sendJson(response, result.started ? 202 : 200, result);
     } catch (error) {
       sendJson(response, 500, { error: error.message });
     }
+    return;
+  }
+
+  if (pathname === "/api/train-model-status" && request.method === "GET") {
+    sendJson(response, 200, { job: gestureTrainingJob });
     return;
   }
 

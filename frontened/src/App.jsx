@@ -474,19 +474,45 @@ export default function App() {
 
   async function trainDeepModel() {
     setIsTrainingModel(true);
-    setTrainingStatus("正在用本地数据库训练深度学习模型...");
+    setTrainingStatus("深度学习模型训练已提交到云端后台，请稍等。");
     try {
       const response = await fetch(apiUrl("/api/train-model"), { method: "POST" });
       const payload = await response.json();
       if (!response.ok || payload.error) throw new Error(payload.error || "训练失败");
-      await loadTrainedModel();
-      setTrainingStatus(`训练完成：${payload.sampleCount} 个样本，训练集准确率 ${(payload.accuracy * 100).toFixed(1)}%。`);
+      await pollGestureTrainingStatus();
     } catch (error) {
       console.error(error);
       setTrainingStatus(error.message);
-    } finally {
       setIsTrainingModel(false);
     }
+  }
+
+  async function pollGestureTrainingStatus() {
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      const response = await fetch(apiUrl("/api/train-model-status"));
+      const payload = await response.json();
+      const job = payload.job || {};
+
+      if (job.status === "completed") {
+        await loadTrainedModel();
+        const result = job.payload || {};
+        const accuracy = result.accuracy ? (result.accuracy * 100).toFixed(1) : "未知";
+        setTrainingStatus(`训练完成：${result.sampleCount ?? "若干"} 个样本，训练集准确率 ${accuracy}%。`);
+        setIsTrainingModel(false);
+        return;
+      }
+
+      if (job.status === "failed") {
+        throw new Error(job.error || "训练失败");
+      }
+
+      setTrainingStatus(`深度学习模型正在云端后台训练中... ${attempt + 1}`);
+      await wait(2000);
+    }
+
+      await loadTrainedModel();
+      setTrainingStatus("训练仍在后台运行，可以稍后刷新页面查看模型状态。");
+      setIsTrainingModel(false);
   }
 
   function stopCollecting() {

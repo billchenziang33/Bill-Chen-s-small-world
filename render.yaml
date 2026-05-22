@@ -8,6 +8,8 @@ services:
     envVars:
       - key: YOLO_EPOCHS
         value: "5"
+      - key: GESTURE_EPOCHS
+        value: "90"
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: PYTHONIOENCODING
