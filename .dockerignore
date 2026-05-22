@@ -1,0 +1,10 @@
+node_modules
+frontened/dist
+.git
+.idea
+.vercel
+*.log
+backened/data/object_temp
+backened/data/object_runs/**/cache*
+__pycache__
+*.pyc

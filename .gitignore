@@ -1,0 +1,13 @@
+.vercel
+node_modules/
+frontened/dist/
+.idea/
+*.log
+
+# Local training data and generated model artifacts.
+backened/data/
+yolov8n.pt
+
+# Python caches.
+__pycache__/
+*.pyc

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: bill-chen-small-world-api
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: YOLO_EPOCHS
+        value: "12"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONIOENCODING
+        value: utf-8
+    disk:
+      name: bill-chen-small-world-data
+      mountPath: /app/backened/data
+      sizeGB: 10

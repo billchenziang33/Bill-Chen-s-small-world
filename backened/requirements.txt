@@ -1,0 +1,7 @@
+ultralytics==8.4.53
+torch
+torchvision
+opencv-python-headless
+numpy
+PyYAML
+requests
