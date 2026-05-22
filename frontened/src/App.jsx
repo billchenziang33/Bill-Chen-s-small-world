@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 
-const REQUIRED_SAMPLES_PER_DIGIT = 50;
+const REQUIRED_SAMPLES_PER_DIGIT = 30;
 const digitOptions = Array.from({ length: 10 }, (_, index) => String(index + 1));
 const objectOptions = [
   { id: "phone", name: "手机" },
@@ -461,15 +461,37 @@ export default function App() {
     isCollectingRef.current = true;
     setIsCollecting(true);
     let collected = selectedDigitCount;
+    const samples = [];
     while (isCollectingRef.current && collected < REQUIRED_SAMPLES_PER_DIGIT) {
-      const saved = await captureTrainingSample();
-      if (saved) collected += 1;
-      setTrainingStatus(`正在保存数字 ${selectedDigit}：${collected}/${REQUIRED_SAMPLES_PER_DIGIT}`);
-      await wait(70);
+      const landmarks = latestLandmarksRef.current;
+      if (landmarks) {
+        samples.push({ id: crypto.randomUUID(), digit: selectedDigit, vector: extractFeatureVector(landmarks) });
+        collected += 1;
+      }
+      setTrainingStatus(`正在采集数字 ${selectedDigit}：${collected}/${REQUIRED_SAMPLES_PER_DIGIT}`);
+      await wait(35);
     }
     isCollectingRef.current = false;
     setIsCollecting(false);
-    setTrainingStatus(collected >= REQUIRED_SAMPLES_PER_DIGIT ? `数字 ${selectedDigit} 已采满 50 个样本。` : `已停止采集数字 ${selectedDigit}。`);
+    if (!samples.length) {
+      setTrainingStatus("还没有检测到手，请先把手放进画面。");
+      return;
+    }
+    try {
+      setTrainingStatus(`正在一次性保存 ${samples.length} 个样本到数据库...`);
+      const response = await fetch(apiUrl("/api/training-samples"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: samples })
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.error) throw new Error(payload.error || "保存失败");
+      await loadTrainingSamples();
+      setTrainingStatus(collected >= REQUIRED_SAMPLES_PER_DIGIT ? `数字 ${selectedDigit} 已采满 30 个样本。` : `已停止采集数字 ${selectedDigit}。`);
+    } catch (error) {
+      console.error(error);
+      setTrainingStatus(error.message);
+    }
   }
 
   async function trainDeepModel() {
@@ -788,7 +810,7 @@ export default function App() {
                   </div>
                   <div className="training-actions">
                     <button className="ghost-button" type="button" onClick={captureTrainingSample}>保存 1 个样本</button>
-                    <button className="ghost-button" type="button" onClick={collectUntilReady} disabled={isCollecting}>连续保存到 100</button>
+                    <button className="ghost-button" type="button" onClick={collectUntilReady} disabled={isCollecting}>连续保存到 30</button>
                     <button className="ghost-button" type="button" onClick={stopCollecting} disabled={!isCollecting}>停止</button>
                     <button className="ghost-button" type="button" onClick={trainDeepModel} disabled={isTrainingModel}>{isTrainingModel ? "训练中..." : "训练深度模型"}</button>
                     <button className="ghost-button danger-button" type="button" onClick={clearSelectedDigitSamples}>清空当前数字</button>

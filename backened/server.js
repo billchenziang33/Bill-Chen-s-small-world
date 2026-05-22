@@ -316,7 +316,8 @@ const server = http.createServer(async (request, response) => {
   if (pathname === "/api/training-samples" && request.method === "POST") {
     try {
       const body = await collectRequestBody(request);
-      sendJson(response, 201, runPythonJson([trainingDbScript, "add", JSON.stringify(body)]));
+      const command = Array.isArray(body.items) ? "add-many" : "add";
+      sendJson(response, 201, runPythonJson([trainingDbScript, command, JSON.stringify(body)]));
     } catch (error) {
       sendJson(response, 400, { error: error.message });
     }

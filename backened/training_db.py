@@ -73,6 +73,32 @@ def add_sample(connection, payload):
     return {"saved": True, "summary": get_summary(connection)}
 
 
+def add_samples(connection, payload):
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError("items must be a non-empty list")
+
+    for item in items:
+        sample_id = str(item.get("id") or "")
+        digit = str(item.get("digit") or "")
+        vector = item.get("vector")
+
+        if not sample_id:
+            raise ValueError("id is required")
+        if digit not in {str(index) for index in range(1, 11)}:
+            raise ValueError("digit must be 1-10")
+        if not isinstance(vector, list) or not vector:
+            raise ValueError("vector must be a non-empty list")
+
+        connection.execute(
+            "INSERT OR REPLACE INTO training_samples (id, digit, vector_json) VALUES (?, ?, ?)",
+            (sample_id, digit, json.dumps(vector)),
+        )
+
+    connection.commit()
+    return {"saved": True, "savedCount": len(items), "summary": get_summary(connection)}
+
+
 def clear_samples(connection, payload):
     digit = payload.get("digit")
     if digit:
@@ -94,6 +120,8 @@ def main():
             result = list_samples(connection)
         elif command == "add":
             result = add_sample(connection, payload)
+        elif command == "add-many":
+            result = add_samples(connection, payload)
         elif command == "clear":
             result = clear_samples(connection, payload)
         elif command == "summary":
