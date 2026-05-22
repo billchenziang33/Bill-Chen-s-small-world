@@ -10,7 +10,7 @@ DATA_DIR = ROOT_DIR / "data"
 DB_PATH = DATA_DIR / "gesture_training.sqlite"
 MODEL_JSON_PATH = DATA_DIR / "gesture_model.json"
 MODEL_PT_PATH = DATA_DIR / "gesture_model.pt"
-DEFAULT_EPOCHS = 90
+DEFAULT_EPOCHS = 60
 
 
 def load_samples():
@@ -42,8 +42,8 @@ def main():
         ) from error
 
     samples, labels = load_samples()
-    if len(samples) < 100:
-        raise RuntimeError("At least 100 total samples are required before training.")
+    if len(samples) < 50:
+        raise RuntimeError("At least 50 total samples are required before training.")
 
     feature_count = len(samples[0])
     class_count = 10
@@ -51,16 +51,14 @@ def main():
     y = torch.tensor(labels, dtype=torch.long)
 
     model = nn.Sequential(
-        nn.Linear(feature_count, 96),
+        nn.Linear(feature_count, 64),
         nn.ReLU(),
-        nn.Dropout(0.12),
-        nn.Linear(96, 48),
-        nn.ReLU(),
-        nn.Linear(48, class_count),
+        nn.Dropout(0.08),
+        nn.Linear(64, class_count),
     )
 
-    loader = DataLoader(TensorDataset(x, y), batch_size=32, shuffle=True)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.003)
+    loader = DataLoader(TensorDataset(x, y), batch_size=48, shuffle=True)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.004)
     loss_fn = nn.CrossEntropyLoss()
 
     model.train()

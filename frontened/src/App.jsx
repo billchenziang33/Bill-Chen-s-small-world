@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 
-const REQUIRED_SAMPLES_PER_DIGIT = 100;
+const REQUIRED_SAMPLES_PER_DIGIT = 50;
 const digitOptions = Array.from({ length: 10 }, (_, index) => String(index + 1));
 const objectOptions = [
   { id: "phone", name: "手机" },
@@ -465,11 +465,11 @@ export default function App() {
       const saved = await captureTrainingSample();
       if (saved) collected += 1;
       setTrainingStatus(`正在保存数字 ${selectedDigit}：${collected}/${REQUIRED_SAMPLES_PER_DIGIT}`);
-      await wait(120);
+      await wait(70);
     }
     isCollectingRef.current = false;
     setIsCollecting(false);
-    setTrainingStatus(collected >= REQUIRED_SAMPLES_PER_DIGIT ? `数字 ${selectedDigit} 已采满 100 个样本。` : `已停止采集数字 ${selectedDigit}。`);
+    setTrainingStatus(collected >= REQUIRED_SAMPLES_PER_DIGIT ? `数字 ${selectedDigit} 已采满 50 个样本。` : `已停止采集数字 ${selectedDigit}。`);
   }
 
   async function trainDeepModel() {
