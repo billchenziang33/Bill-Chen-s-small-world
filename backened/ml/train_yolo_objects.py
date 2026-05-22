@@ -9,7 +9,7 @@ DATA_DIR = ROOT_DIR / "data"
 DATA_YAML = DATA_DIR / "object_dataset" / "data.yaml"
 LABELS_DIR = DATA_DIR / "object_dataset" / "labels" / "train"
 RUNS_DIR = DATA_DIR / "object_runs"
-DEFAULT_EPOCHS = 12
+DEFAULT_EPOCHS = 5
 
 
 def main():

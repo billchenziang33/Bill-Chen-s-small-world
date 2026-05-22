@@ -7,7 +7,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: YOLO_EPOCHS
-        value: "12"
+        value: "5"
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: PYTHONIOENCODING

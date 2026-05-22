@@ -531,18 +531,42 @@ export default function App() {
 
   async function trainObjectModel() {
     setIsTrainingObjectModel(true);
-    setObjectStatus("正在训练 YOLO 物品模型，请稍等。");
+    setObjectStatus("YOLO 训练已提交到云端后台，请稍等。");
     try {
       const response = await fetch(apiUrl("/api/train-object-model"), { method: "POST" });
       const payload = await response.json();
       if (!response.ok || payload.error) throw new Error(payload.error || "YOLO 训练失败");
-      setObjectStatus(`YOLO 训练完成：${payload.epochs} 轮，模型已保存。`);
+      await pollObjectTrainingStatus();
     } catch (error) {
       console.error(error);
       setObjectStatus(error.message);
-    } finally {
       setIsTrainingObjectModel(false);
     }
+  }
+
+  async function pollObjectTrainingStatus() {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      const response = await fetch(apiUrl("/api/object-train-status"));
+      const payload = await response.json();
+      const job = payload.job || {};
+
+      if (job.status === "completed") {
+        const epochs = job.payload?.epochs ?? "若干";
+        setObjectStatus(`YOLO 训练完成：${epochs} 轮，模型已保存。`);
+        setIsTrainingObjectModel(false);
+        return;
+      }
+
+      if (job.status === "failed") {
+        throw new Error(job.error || "YOLO 训练失败");
+      }
+
+      setObjectStatus(`YOLO 正在云端后台训练中... ${attempt + 1}`);
+      await delay(3000);
+    }
+
+    setObjectStatus("YOLO 训练仍在后台运行，可以稍后刷新页面查看。");
+    setIsTrainingObjectModel(false);
   }
 
   async function detectObjectsOnce() {
