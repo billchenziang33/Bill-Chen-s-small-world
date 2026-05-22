@@ -42,8 +42,8 @@ def main():
         ) from error
 
     samples, labels = load_samples()
-    if len(samples) < 30:
-        raise RuntimeError("At least 30 total samples are required before training.")
+    if len(samples) < 50:
+        raise RuntimeError("At least 50 total samples are required before training.")
 
     feature_count = len(samples[0])
     class_count = 10
