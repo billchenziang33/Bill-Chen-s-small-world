@@ -13,6 +13,10 @@ const objectOptions = [
 ];
 const fixedObjectBox = { x: 0.22, y: 0.2, width: 0.56, height: 0.58 };
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const MEDIAPIPE_WASM_SOURCES = [
+  "/mediapipe",
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+];
 
 function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
@@ -99,20 +103,26 @@ export default function App() {
   }
 
   async function bootstrap() {
-    try {
-      const vision = await FilesetResolver.forVisionTasks("/mediapipe");
-      handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: "/mediapipe/hand_landmarker.task" },
-        numHands: 1,
-        runningMode: "VIDEO"
-      });
-      setIsReady(true);
-      setModelStatus("模型已就绪");
-    } catch (error) {
-      console.error(error);
-      setModelStatus("手势模型加载失败");
-      setGestureName("暂不可用");
+    for (const wasmSource of MEDIAPIPE_WASM_SOURCES) {
+      try {
+        setModelStatus(wasmSource.startsWith("http") ? "正在尝试备用手势模型..." : "正在加载手势模型...");
+        const vision = await withTimeout(FilesetResolver.forVisionTasks(wasmSource), 12000);
+        handLandmarkerRef.current = await withTimeout(HandLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: "/mediapipe/hand_landmarker.task" },
+          numHands: 1,
+          runningMode: "VIDEO"
+        }), 18000);
+        setIsReady(true);
+        setModelStatus("模型已就绪");
+        return;
+      } catch (error) {
+        console.error(`Hand model load failed from ${wasmSource}`, error);
+      }
     }
+
+    setIsReady(false);
+    setModelStatus("手势模型加载失败，请刷新重试");
+    setGestureName("暂不可用");
   }
 
   async function loadTrainingSamples() {
@@ -150,7 +160,7 @@ export default function App() {
   }
 
   async function toggleCamera() {
-    if (!isReady) return;
+    if (!isReady && modeRef.current !== "object") return;
     if (isCameraRunning) {
       stopCamera();
       return;
@@ -788,7 +798,7 @@ export default function App() {
               <div className="frame-glow" />
             </div>
             <div className="action-row">
-              <button className="primary-button" type="button" onClick={toggleCamera} disabled={!isReady}>{buttonLabel}</button>
+              <button className="primary-button" type="button" onClick={toggleCamera} disabled={!isReady && mode !== "object"}>{buttonLabel}</button>
               <span className="status-pill">{modelStatus}</span>
             </div>
           </div>
@@ -907,4 +917,13 @@ function wait(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
   });
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+    })
+  ]);
 }
